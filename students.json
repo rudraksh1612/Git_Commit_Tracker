@@ -1,5 +1,6 @@
-[
-  { "name": "Alice Sharma", "owner": "alice-gh", "repo": "cs101-project" },
-  { "name": "Bob Kumar", "owner": "bobk", "repo": "cs101-project" },
-  { "name": "Chen Wei", "owner": "chenwei-dev", "repo": "cs101-project" }
-]
+[{
+  "name": "Rudraksh",
+    "owner": "rudraksh1612",
+    "repo": "Hospital-Management-System"
+  
+}]
