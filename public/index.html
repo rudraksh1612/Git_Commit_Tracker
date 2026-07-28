@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commit Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="hero-left">
+      <div class="eyebrow">// class-commit-tracker</div>
+      <h1>Commit Ledger</h1>
+      <p class="sub">Daily GitHub activity, one row per student, one square per day.</p>
+    </div>
+    <div class="hero-right" id="configBadges">
+      <!-- filled by app.js -->
+    </div>
+  </header>
+
+  <section class="controls">
+    <button id="trackBtn" class="btn-primary">Track today's commits</button>
+    <span id="trackStatus" class="track-status"></span>
+  </section>
+
+  <section class="stats" id="stats">
+    <!-- filled by app.js -->
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Ledger</h2>
+      <span class="panel-hint" id="ledgerRange"></span>
+    </div>
+    <div class="ledger-scroll">
+      <table id="ledgerTable">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Daily total commits</h2>
+    </div>
+    <canvas id="trendChart" height="90"></canvas>
+  </section>
+
+  <footer class="foot">Data stored locally in <code>data/commits.json</code>. Roster edited in <code>students.json</code>.</footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
