@@ -2,24 +2,14 @@
   "name": "commit-tracker",
   "version": "1.0.0",
   "description": "Tracks daily GitHub commit counts for a fixed list of student repos.",
-  "homepage": "https://github.com/rudraksh1612/Git_Commit_Tracker#readme",
-  "bugs": {
-    "url": "https://github.com/rudraksh1612/Git_Commit_Tracker/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/rudraksh1612/Git_Commit_Tracker.git"
-  },
-  "license": "ISC",
-  "author": "Rudraksh",
-  "type": "commonjs",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "node-cron": "^3.0.3"
+    "node-cron": "^4.6.0"
   }
 }

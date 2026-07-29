@@ -26,6 +26,25 @@
   <section class="controls">
     <button id="trackBtn" class="btn-primary">Track today's commits</button>
     <span id="trackStatus" class="track-status"></span>
+    <div class="spacer"></div>
+    <label class="filter-label">Section
+      <select id="sectionFilter"><option value="all">All</option></select>
+    </label>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Add student</h2>
+    </div>
+    <form id="addStudentForm" class="add-form">
+      <input name="name" placeholder="Student name" required>
+      <input name="owner" placeholder="GitHub owner/org" required>
+      <input name="repo" placeholder="Repo name" required>
+      <input name="class" placeholder="Class (e.g. CSE)">
+      <input name="section" placeholder="Section (e.g. A)">
+      <button type="submit" class="btn-primary">Add student</button>
+    </form>
+    <div id="addStudentStatus" class="track-status"></div>
   </section>
 
   <section class="stats" id="stats">
@@ -56,7 +75,7 @@
 
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -19,7 +19,45 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ---------- File helpers ----------
 
 function loadStudents() {
-  return JSON.parse(fs.readFileSync(STUDENTS_PATH, 'utf-8'));
+  const students = JSON.parse(fs.readFileSync(STUDENTS_PATH, 'utf-8'));
+
+  // Backfill id/class/section for rosters created before these fields existed.
+  let needsSave = false;
+  for (const s of students) {
+    const normalizedOwner = normalizeGitHubRef(s.owner);
+    const normalizedRepo = normalizeGitHubRef(s.repo);
+    if (s.owner !== normalizedOwner) { s.owner = normalizedOwner; needsSave = true; }
+    if (s.repo !== normalizedRepo) { s.repo = normalizedRepo; needsSave = true; }
+    if (!s.id) { s.id = makeId(); needsSave = true; }
+    if (!s.class) { s.class = 'Unassigned'; needsSave = true; }
+    if (!s.section) { s.section = 'Unassigned'; needsSave = true; }
+  }
+  if (needsSave) saveStudents(students);
+
+  return students;
+}
+
+function saveStudents(data) {
+  fs.writeFileSync(STUDENTS_PATH, JSON.stringify(data, null, 2));
+}
+
+function makeId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function normalizeGitHubRef(value) {
+  const raw = String(value || '').trim().replace(/\.git$/i, '');
+  if (!raw) return '';
+
+  try {
+    const parsed = new URL(raw.startsWith('http://') || raw.startsWith('https://') ? raw : `https://${raw}`);
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    if (parts.length >= 2) return `${parts[0]}/${parts[1]}`;
+  } catch {
+    // Fall through to the raw value below.
+  }
+
+  return raw;
 }
 
 function loadCommits() {
@@ -70,6 +108,8 @@ function todayLocalDateStr(timeZone) {
 // ---------- GitHub API ----------
 
 async function fetchCommitCount(owner, repo, dateStr) {
+  owner = normalizeGitHubRef(owner);
+  repo = normalizeGitHubRef(repo);
   const { since, until } = localDayRangeUTC(dateStr, TIMEZONE);
   let page = 1;
   let total = 0;
@@ -109,7 +149,7 @@ async function trackDay(dateStr) {
 
   for (const student of students) {
     const result = await fetchCommitCount(student.owner, student.repo, dateStr);
-    commits[dateStr][student.name] = result;
+    commits[dateStr][student.id] = result;
   }
 
   saveCommits(commits);
@@ -120,6 +160,51 @@ async function trackDay(dateStr) {
 
 app.get('/api/students', (req, res) => {
   res.json(loadStudents());
+});
+
+// Add a new student: { name, owner, repo, class, section }
+app.post('/api/students', (req, res) => {
+  const { name, owner, repo, class: className, section } = req.body || {};
+
+  if (!name || !owner || !repo) {
+    return res.status(400).json({ error: 'name, owner, and repo are required' });
+  }
+
+  const students = loadStudents();
+
+  const duplicate = students.some(
+    s => normalizeGitHubRef(s.owner).toLowerCase() === normalizeGitHubRef(owner).toLowerCase() &&
+         normalizeGitHubRef(s.repo).toLowerCase() === normalizeGitHubRef(repo).toLowerCase()
+  );
+  if (duplicate) {
+    return res.status(409).json({ error: 'a student with that owner/repo is already on the roster' });
+  }
+
+  const student = {
+    id: makeId(),
+    name: String(name).trim(),
+    owner: normalizeGitHubRef(owner),
+    repo: normalizeGitHubRef(repo),
+    class: className ? String(className).trim() : 'Unassigned',
+    section: section ? String(section).trim() : 'Unassigned'
+  };
+
+  students.push(student);
+  saveStudents(students);
+  res.status(201).json(student);
+});
+
+// Remove a student from the roster (their historical commit data is kept)
+app.delete('/api/students/:id', (req, res) => {
+  const students = loadStudents();
+  const next = students.filter(s => s.id !== req.params.id);
+
+  if (next.length === students.length) {
+    return res.status(404).json({ error: 'student not found' });
+  }
+
+  saveStudents(next);
+  res.json({ deleted: req.params.id });
 });
 
 app.get('/api/commits', (req, res) => {
