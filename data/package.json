@@ -1,0 +1,16 @@
+{
+  "name": "commit-tracker",
+  "version": "2.1.0",
+  "description": "Class GitHub commit leaderboard: roster synced from a Google Form/Sheet, data stored in MongoDB, updates on page reload (no background cron).",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongodb": "^6.21.0"
+  }
+}

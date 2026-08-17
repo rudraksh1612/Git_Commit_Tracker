@@ -6,6 +6,8 @@ const HEAT_HEX = {
   4: '#C6F1B8'
 };
 
+const MEDALS = ['🥇', '🥈', '🥉'];
+
 let allStudents = [];
 let allCommits = {};
 let currentTZ = 'UTC';
@@ -42,20 +44,25 @@ function groupKey(s) {
   return `${s.class || 'Unassigned'} - ${s.section || 'Unassigned'}`;
 }
 
+function initials(name) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
+}
+
 async function loadAll() {
-  const [config, students, commits] = await Promise.all([
+  const [config, students, commits, leaderboard] = await Promise.all([
     fetch('/api/config').then(r => r.json()),
     fetch('/api/students').then(r => r.json()),
-    fetch('/api/commits').then(r => r.json())
+    fetch('/api/commits').then(r => r.json()),
+    fetch('/api/leaderboard').then(r => r.json())
   ]);
-  return { config, students, commits };
+  return { config, students, commits, leaderboard };
 }
 
 function renderBadges(config) {
   const el = document.getElementById('configBadges');
   el.innerHTML = `
     <span class="badge">tz: <b>${config.timezone}</b></span>
-    <span class="badge">cron: <b>${config.cronSchedule}</b></span>
+    <span class="badge ${config.hasSheetUrl ? '' : 'warn'}">sheet sync: <b>${config.hasSheetUrl ? 'configured' : 'not configured'}</b></span>
     <span class="badge ${config.hasToken ? '' : 'warn'}">token: <b>${config.hasToken ? 'set' : 'missing'}</b></span>
   `;
 }
@@ -130,13 +137,45 @@ function renderStats(students, commits) {
   `;
 }
 
+function renderLeaderboard(leaderboard) {
+  const el = document.getElementById('leaderboard');
+  let groups = leaderboard;
+
+  if (currentFilter !== 'all') {
+    groups = groups.filter(g => g.group === currentFilter);
+  }
+
+  if (groups.length === 0) {
+    el.innerHTML = `<p class="track-status">No students yet — sync from the Google Sheet to get started.</p>`;
+    return;
+  }
+
+  el.innerHTML = groups.map(g => {
+    const maxTotal = Math.max(1, ...g.students.map(s => s.total));
+    const rows = g.students.map((s, i) => `
+      <div class="lb-row">
+        <span class="lb-rank">${MEDALS[i] || (i + 1)}</span>
+        <span class="lb-avatar">${initials(s.name)}</span>
+        <span class="lb-name">${s.name}</span>
+        <span class="lb-bar-track"><span class="lb-bar-fill" style="width:${(s.total / maxTotal) * 100}%"></span></span>
+        <span class="lb-count">${s.total}</span>
+      </div>
+    `).join('');
+
+    return `
+      <div class="lb-group">
+        <div class="lb-group-head">${g.group}</div>
+        ${rows}
+      </div>
+    `;
+  }).join('');
+}
+
 async function removeStudent(id) {
   if (!confirm('Remove this student from the roster? Historical commit data is kept.')) return;
   const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
   if (res.ok) {
-    allStudents = allStudents.filter(s => s.id !== id);
-    populateFilter(allStudents);
-    render();
+    await loadAndRender();
   } else {
     alert('Could not remove student.');
   }
@@ -170,7 +209,7 @@ function renderLedger(students, commits, tz) {
     for (const s of groups[gname].sort((a, b) => a.name.localeCompare(b.name))) {
       const cells = days.map(date => {
         const entry = commits[date] ? commits[date][s.id] : undefined;
-        if (entry === undefined) {
+        if (entry === undefined || entry === null) {
           return `<td><span class="cell-square na">–</span></td>`;
         }
         if (typeof entry === 'object' && entry.error) {
@@ -248,26 +287,46 @@ function renderTrend(students, commits) {
   }
 }
 
-function render() {
+function render(leaderboard) {
   const students = filteredStudents();
   renderStats(students, allCommits);
+  renderLeaderboard(leaderboard);
   renderLedger(students, allCommits, currentTZ);
   renderTrend(students, allCommits);
 }
 
-async function refresh() {
-  const { config, students, commits } = await loadAll();
+let lastLeaderboard = [];
+
+async function loadAndRender() {
+  const { config, students, commits, leaderboard } = await loadAll();
   currentTZ = config.timezone;
   allStudents = students;
   allCommits = commits;
+  lastLeaderboard = leaderboard;
   renderBadges(config);
   populateFilter(students);
-  render();
+  render(leaderboard);
+}
+
+// Full page load: bring GitHub + Sheet data up to date, then display it.
+// This is what replaces a background cron — reloading the page is the trigger.
+async function refresh() {
+  const status = document.getElementById('trackStatus');
+  status.textContent = 'Updating from GitHub + Sheet…';
+  try {
+    const res = await fetch('/api/refresh', { method: 'POST' });
+    const json = await res.json();
+    if (json.trackError) status.textContent = `Track error: ${json.trackError}`;
+    else status.textContent = `Updated for ${json.date} at ${new Date().toLocaleTimeString()}`;
+  } catch (err) {
+    status.textContent = `Error updating: ${err.message}`;
+  }
+  await loadAndRender();
 }
 
 document.getElementById('sectionFilter').addEventListener('change', (e) => {
   currentFilter = e.target.value;
-  render();
+  render(lastLeaderboard);
 });
 
 document.getElementById('trackBtn').addEventListener('click', async () => {
@@ -280,7 +339,7 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'failed');
     status.textContent = `Tracked ${json.date} at ${new Date().toLocaleTimeString()}`;
-    await refresh();
+    await loadAndRender();
   } catch (err) {
     status.textContent = `Error: ${err.message}`;
   } finally {
@@ -288,34 +347,24 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const status = document.getElementById('addStudentStatus');
-  const classField = form.elements.namedItem('class');
-  const payload = {
-    name: form.name.value.trim(),
-    owner: form.owner.value.trim(),
-    repo: form.repo.value.trim(),
-    class: classField ? classField.value.trim() : '',
-    section: form.section.value.trim()
-  };
-
-  status.textContent = 'Adding…';
+document.getElementById('syncBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('syncBtn');
+  const status = document.getElementById('trackStatus');
+  btn.disabled = true;
+  status.textContent = 'Syncing roster from Sheet…';
   try {
-    const res = await fetch('/api/students', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    const res = await fetch('/api/students/sync', { method: 'POST' });
     const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'failed to add student');
-    status.textContent = `Added ${json.name}.`;
-    form.reset();
-    await refresh();
+    if (!res.ok) throw new Error(json.error || 'failed');
+    status.textContent = `Synced: ${json.added} added, ${json.updated} updated, ${json.totalRows} total rows.`;
+    await loadAndRender();
   } catch (err) {
     status.textContent = `Error: ${err.message}`;
+  } finally {
+    btn.disabled = false;
   }
 });
 
+// No background cron and no auto-polling — reloading this page (or clicking
+// Track/Sync above) is what brings the data up to date.
 refresh();
