@@ -56,14 +56,6 @@ Removing a student (the "×" in the ledger) deletes them from MongoDB — their
 historical commit records stay, they just stop showing up in new views. If
 they resubmit the Form, the next sync will re-add them (same owner/repo).
 
-> **Reload frequency matters for your GitHub rate limit.** Each reload makes
-> one GitHub API call per student. With an authenticated token that's a
-> 5,000/hour budget — fine for occasional reloads with a normal class size,
-> but reloading constantly (e.g. an auto-refreshing kiosk tab) with a large
-> roster can burn through it. If you want unattended, scheduled updates
-> instead of reload-triggered ones, that's a small change to reintroduce —
-> just ask.
-
 ## How "commits in a day" is counted
 
 For each student's repo, the app calls GitHub's
