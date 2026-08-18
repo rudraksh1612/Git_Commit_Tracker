@@ -219,7 +219,7 @@ function renderLedger(students, commits, tz) {
         return `<td><span class="cell-square" style="background:${HEAT_HEX[level]}">${entry}</span></td>`;
       }).join('');
 
-      rows += `<tr><td class="name-cell">${s.name}<button class="remove-btn" data-id="${s.id}" title="Remove student">×</button></td>${cells}</tr>`;
+      // rows += `<tr><td class="name-cell">${s.name}<button class="remove-btn" data-id="${s.id}" title="Remove student">×</button></td>${cells}</tr>`;
     }
   }
 
