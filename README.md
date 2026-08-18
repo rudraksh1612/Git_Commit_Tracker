@@ -1,10 +1,10 @@
-# Commit Ledger
+# Commit Tracker
 
 Tracks daily GitHub commit counts for a class roster collected via a Google
 Form, synced into MongoDB, and shown on a dashboard with a section-by-section
 leaderboard, a heatmap ledger, and a trend chart.
 
-**No background scheduler.** GitHub and the roster Sheet are refreshed when
+GitHub and the Sheet are refreshed when
 the dashboard page loads (or reloads), and via the two buttons on the page.
 Nothing runs while the page isn't open.
 
