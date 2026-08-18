@@ -1,9 +1,9 @@
 const HEAT_HEX = {
-  0: '#24392C',
-  1: '#3F6B4C',
-  2: '#5FA06B',
-  3: '#86D18F',
-  4: '#C6F1B8'
+  0: '#2A1F2B',
+  1: '#513457',
+  2: '#8A5D97',
+  3: '#C38AC8',
+  4: '#E6C7EA'
 };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -164,21 +164,14 @@ function renderLeaderboard(leaderboard) {
 
     return `
       <div class="lb-group">
-        <div class="lb-group-head">${g.group}</div>
+        <div class="lb-group-head">
+          <span>${g.group}</span>
+          <span class="lb-group-count">${g.students.length} students</span>
+        </div>
         ${rows}
       </div>
     `;
   }).join('');
-}
-
-async function removeStudent(id) {
-  if (!confirm('Remove this student from the roster? Historical commit data is kept.')) return;
-  const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
-  if (res.ok) {
-    await loadAndRender();
-  } else {
-    alert('Could not remove student.');
-  }
 }
 
 function renderLedger(students, commits, tz) {
@@ -216,16 +209,24 @@ function renderLedger(students, commits, tz) {
           return `<td><span class="cell-square err" title="${entry.error}">!</span></td>`;
         }
         const level = heatLevel(entry);
-        return `<td><span class="cell-square" style="background:${HEAT_HEX[level]}">${entry}</span></td>`;
+        return `<td><span class="cell-square" style="background:${HEAT_HEX[level]}; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);">${entry}</span></td>`;
       }).join('');
 
-      rows += `<tr><td class="name-cell">${s.name}</td>${cells}</tr>`;
+      rows += `
+        <tr>
+          <td class="name-cell">
+            <div class="name-stack">
+              <span class="name-avatar">${initials(s.name)}</span>
+              <span class="student-name">${s.name}</span>
+            </div>
+          </td>
+          ${cells}
+        </tr>
+      `;
     }
   }
 
   tbody.innerHTML = rows || `<tr><td colspan="${days.length + 1}">No students in this section yet.</td></tr>`;
-
-  
 }
 
 let trendChart = null;
@@ -244,45 +245,74 @@ function renderTrend(students, commits) {
     return;
   }
 
-  const ids = new Set(students.map(s => s.id));
-  const dates = Object.keys(commits).sort();
-  const totals = dates.map(date => {
-    let sum = 0;
-    for (const [id, v] of Object.entries(commits[date])) {
-      if (ids.has(id) && typeof v === 'number') sum += v;
-    }
-    return sum;
-  });
+  const roster = currentFilter === 'all' ? allStudents : students;
+  const ids = new Set(roster.map(s => s.id));
+  const studentById = {};
+  roster.forEach(s => { studentById[s.id] = s; });
 
+  const totalsBySection = {};
+  for (const day of Object.values(commits)) {
+    for (const [id, v] of Object.entries(day)) {
+      if (!ids.has(id) || typeof v !== 'number') continue;
+      const key = groupKey(studentById[id]);
+      totalsBySection[key] = (totalsBySection[key] || 0) + v;
+    }
+  }
+
+  const labels = Object.keys(totalsBySection);
+  const values = labels.map(label => totalsBySection[label]);
   const ctx = document.getElementById('trendChart');
+
+  const palette = [
+    '#F8A7D9', '#D38EFA', '#B1A6FF', '#BCC5D6', '#E2D8E8',
+    '#FF8FB8', '#C3B0FF', '#9FAFC0', '#E8B5D5', '#D3CEE1'
+  ];
+
   const data = {
-    labels: dates.map(shortLabel),
+    labels,
     datasets: [{
-      label: 'Total commits',
-      data: totals,
-      borderColor: '#E8C468',
-      backgroundColor: 'rgba(232,196,104,0.12)',
-      pointBackgroundColor: '#E8C468',
-      tension: 0.25,
-      fill: true
+      label: 'Commit share',
+      data: values,
+      backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+      borderColor: '#18141E',
+      borderWidth: 2,
+      hoverOffset: 12
     }]
   };
 
   const options = {
     responsive: true,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { ticks: { color: '#9AAE9F', font: { family: 'IBM Plex Mono', size: 11 } }, grid: { color: '#35503F' } },
-      y: { ticks: { color: '#9AAE9F', font: { family: 'IBM Plex Mono', size: 11 }, precision: 0 }, grid: { color: '#35503F' } }
+    maintainAspectRatio: false,
+    animation: { duration: 500 },
+    interaction: { intersect: false, mode: 'nearest' },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'right',
+        labels: {
+          color: '#E7DDEC',
+          boxWidth: 14,
+          boxHeight: 14,
+          useBorderRadius: true,
+          borderRadius: 3,
+          padding: 14,
+          font: { family: 'IBM Plex Mono', size: 11 }
+        }
+      },
+      tooltip: {
+        backgroundColor: '#271A2C',
+        titleColor: '#FFE2F4',
+        bodyColor: '#E9DEEF',
+        borderColor: '#8C6D94',
+        borderWidth: 1,
+        displayColors: true
+      }
     }
   };
 
-  if (trendChart) {
-    trendChart.data = data;
-    trendChart.update();
-  } else {
-    trendChart = new Chart(ctx, { type: 'line', data, options });
-  }
+  if (trendChart) trendChart.destroy();
+
+  trendChart = new Chart(ctx, { type: 'pie', data, options });
 }
 
 function render(leaderboard) {
@@ -290,7 +320,7 @@ function render(leaderboard) {
   renderStats(students, allCommits);
   renderLeaderboard(leaderboard);
   renderLedger(students, allCommits, currentTZ);
-  renderTrend(students, allCommits);
+  renderTrend(allStudents, allCommits);
 }
 
 let lastLeaderboard = [];
