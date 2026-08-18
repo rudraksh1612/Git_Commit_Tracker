@@ -219,15 +219,13 @@ function renderLedger(students, commits, tz) {
         return `<td><span class="cell-square" style="background:${HEAT_HEX[level]}">${entry}</span></td>`;
       }).join('');
 
-      // rows += `<tr><td class="name-cell">${s.name}<button class="remove-btn" data-id="${s.id}" title="Remove student">×</button></td>${cells}</tr>`;
+      rows += `<tr><td class="name-cell">${s.name}</td>${cells}</tr>`;
     }
   }
 
   tbody.innerHTML = rows || `<tr><td colspan="${days.length + 1}">No students in this section yet.</td></tr>`;
 
-  tbody.querySelectorAll('.remove-btn').forEach(btn => {
-    btn.addEventListener('click', () => removeStudent(btn.dataset.id));
-  });
+  
 }
 
 let trendChart = null;
